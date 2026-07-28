@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MenuItem, CartItem, UserRole, Category, StoreSettings, OrderDetails, Feedback } from './types';
+import { MenuItem, CartItem, UserRole, Category, StoreSettings, OrderDetails, Feedback, CustomerSpiceLevel } from './types';
 import { INITIAL_MENU_ITEMS, DEFAULT_STORE_SETTINGS, heroImg } from './data/initialMenu';
 import { INITIAL_FEEDBACKS } from './data/initialFeedbacks';
 import { generateWhatsAppUrl } from './utils/whatsapp';
@@ -164,44 +164,97 @@ export default function App() {
   };
 
   // Cart Handlers
-  const handleAddToCart = (dish: MenuItem) => {
+  const handleAddToCart = (dish: MenuItem, selectedSpiceLevel?: CustomerSpiceLevel) => {
     if (!storeSettings.isStoreOpen && role === 'customer') {
       alert('Sorry, the kitchen is closed right now.');
       return;
     }
+    const isDessertOrDrink = dish.category === 'Desserts & Drinks';
+    const effectiveSpice = isDessertOrDrink ? undefined : (selectedSpiceLevel || 'Medium');
+
     setCartItems((prev) => {
-      const existing = prev.find((item) => item.dish.id === dish.id);
-      if (existing) {
-        return prev.map((item) =>
-          item.dish.id === dish.id
-            ? { ...item, quantity: item.quantity + 1 }
-            : item
+      const existingIdx = prev.findIndex(
+        (item) => item.dish.id === dish.id && item.selectedSpiceLevel === effectiveSpice
+      );
+      if (existingIdx >= 0) {
+        return prev.map((item, idx) =>
+          idx === existingIdx ? { ...item, quantity: item.quantity + 1 } : item
         );
       }
-      return [...prev, { dish, quantity: 1, instructions: '' }];
+      return [...prev, { dish, quantity: 1, selectedSpiceLevel: effectiveSpice, instructions: '' }];
     });
   };
 
-  const handleUpdateQuantity = (dishId: string, qty: number) => {
-    if (!storeSettings.isStoreOpen && role === 'customer' && qty > (cartItems.find(i => i.dish.id === dishId)?.quantity || 0)) {
+  const handleUpdateQuantityByDishId = (dishId: string, newQty: number) => {
+    const currentQty = cartItems
+      .filter((i) => i.dish.id === dishId)
+      .reduce((sum, i) => sum + i.quantity, 0);
+
+    if (!storeSettings.isStoreOpen && role === 'customer' && newQty > currentQty) {
+      alert('Sorry, the kitchen is closed right now.');
+      return;
+    }
+
+    if (newQty <= 0) {
+      setCartItems((prev) => prev.filter((item) => item.dish.id !== dishId));
+    } else {
+      setCartItems((prev) => {
+        let diff = currentQty - newQty;
+        if (diff <= 0) {
+          const lastIdx = prev.map((item, idx) => item.dish.id === dishId ? idx : -1).filter((i) => i !== -1).pop();
+          if (lastIdx !== undefined) {
+            return prev.map((item, idx) => idx === lastIdx ? { ...item, quantity: item.quantity + Math.abs(diff) } : item);
+          }
+          return prev;
+        } else {
+          let remainingToReduce = diff;
+          const next = [...prev];
+          for (let i = next.length - 1; i >= 0; i--) {
+            if (next[i].dish.id === dishId) {
+              if (next[i].quantity > remainingToReduce) {
+                next[i] = { ...next[i], quantity: next[i].quantity - remainingToReduce };
+                remainingToReduce = 0;
+                break;
+              } else {
+                remainingToReduce -= next[i].quantity;
+                next.splice(i, 1);
+              }
+            }
+          }
+          return next;
+        }
+      });
+    }
+  };
+
+  const handleUpdateQuantityByIndex = (cartIndex: number, qty: number) => {
+    if (!storeSettings.isStoreOpen && role === 'customer' && qty > (cartItems[cartIndex]?.quantity || 0)) {
       alert('Sorry, the kitchen is closed right now.');
       return;
     }
     if (qty <= 0) {
-      setCartItems((prev) => prev.filter((item) => item.dish.id !== dishId));
+      setCartItems((prev) => prev.filter((_, idx) => idx !== cartIndex));
     } else {
       setCartItems((prev) =>
-        prev.map((item) =>
-          item.dish.id === dishId ? { ...item, quantity: qty } : item
+        prev.map((item, idx) =>
+          idx === cartIndex ? { ...item, quantity: qty } : item
         )
       );
     }
   };
 
-  const handleUpdateInstructions = (dishId: string, text: string) => {
+  const handleUpdateInstructionsByIndex = (cartIndex: number, text: string) => {
     setCartItems((prev) =>
-      prev.map((item) =>
-        item.dish.id === dishId ? { ...item, instructions: text } : item
+      prev.map((item, idx) =>
+        idx === cartIndex ? { ...item, instructions: text } : item
+      )
+    );
+  };
+
+  const handleUpdateSpiceLevelByIndex = (cartIndex: number, level: CustomerSpiceLevel) => {
+    setCartItems((prev) =>
+      prev.map((item, idx) =>
+        idx === cartIndex ? { ...item, selectedSpiceLevel: level } : item
       )
     );
   };
@@ -456,8 +509,9 @@ export default function App() {
           /* Responsive Food Card Grid */
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {filteredDishes.map((dish) => {
-              const cartItem = cartItems.find((i) => i.dish.id === dish.id);
-              const qty = cartItem ? cartItem.quantity : 0;
+              const qty = cartItems
+                .filter((i) => i.dish.id === dish.id)
+                .reduce((sum, i) => sum + i.quantity, 0);
               const isFav = favoriteIds.includes(dish.id);
 
               return (
@@ -470,7 +524,7 @@ export default function App() {
                   isStoreOpen={storeSettings.isStoreOpen}
                   onToggleFavorite={handleToggleFavorite}
                   onAddToCart={handleAddToCart}
-                  onUpdateQuantity={handleUpdateQuantity}
+                  onUpdateQuantity={handleUpdateQuantityByDishId}
                   onEditDish={(item) => {
                     setEditingDish(item);
                     setIsDishModalOpen(true);
@@ -521,8 +575,9 @@ export default function App() {
         isOpen={isCartOpen}
         onClose={() => setIsCartOpen(false)}
         cartItems={cartItems}
-        onUpdateQuantity={handleUpdateQuantity}
-        onUpdateInstructions={handleUpdateInstructions}
+        onUpdateQuantity={handleUpdateQuantityByIndex}
+        onUpdateInstructions={handleUpdateInstructionsByIndex}
+        onUpdateSpiceLevel={handleUpdateSpiceLevelByIndex}
         onClearCart={handleClearCart}
         onSendWhatsAppOrder={handleSendWhatsAppOrder}
         storeSettings={storeSettings}

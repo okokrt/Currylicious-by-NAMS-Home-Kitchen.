@@ -278,37 +278,19 @@ export const DishFormModal: React.FC<DishFormModalProps> = ({
             </div>
           </div>
 
-          {/* Spice Level & Prep Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="block font-semibold text-[#2D241E]">
-                Spicy Level
-              </label>
-              <select
-                value={spicyLevel}
-                onChange={(e) => setSpicyLevel(e.target.value as SpiceLevel)}
-                className="w-full px-3 py-2 bg-white border border-[#D9CEBF] rounded-xl text-[#2D241E] focus:outline-none focus:border-[#C05621]"
-              >
-                <option value="Mild">Mild 🌶️</option>
-                <option value="Medium">Medium 🌶️🌶️</option>
-                <option value="Spicy">Spicy 🌶️🌶️🌶️</option>
-                <option value="Extra Hot">Extra Hot 🔥🔥🔥</option>
-              </select>
-            </div>
-
-            <div className="space-y-1">
-              <label className="block font-semibold text-[#2D241E]">
-                Prep Time (mins)
-              </label>
-              <input
-                type="number"
-                min="5"
-                max="120"
-                value={prepTime}
-                onChange={(e) => setPrepTime(e.target.value)}
-                className="w-full px-3 py-2 bg-white border border-[#D9CEBF] rounded-xl text-[#2D241E] focus:outline-none focus:border-[#C05621]"
-              />
-            </div>
+          {/* Prep Time */}
+          <div className="space-y-1">
+            <label className="block font-semibold text-[#2D241E]">
+              Preparation Time (Minutes)
+            </label>
+            <input
+              type="number"
+              min="5"
+              max="120"
+              value={prepTime}
+              onChange={(e) => setPrepTime(e.target.value)}
+              className="w-full px-3 py-2 bg-white border border-[#D9CEBF] rounded-xl text-[#2D241E] focus:outline-none focus:border-[#C05621]"
+            />
           </div>
 
           {/* Description & AI Button */}

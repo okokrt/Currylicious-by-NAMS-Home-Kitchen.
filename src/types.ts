@@ -8,6 +8,8 @@ export type Category =
 
 export type SpiceLevel = 'Mild' | 'Medium' | 'Spicy' | 'Extra Hot';
 
+export type CustomerSpiceLevel = 'Mild' | 'Medium' | 'Hot';
+
 export interface MenuItem {
   id: string;
   name: string;
@@ -25,6 +27,7 @@ export interface MenuItem {
 export interface CartItem {
   dish: MenuItem;
   quantity: number;
+  selectedSpiceLevel?: CustomerSpiceLevel;
   instructions?: string;
 }
 
@@ -36,7 +39,7 @@ export interface OrderDetails {
   orderType: 'Delivery' | 'Pickup' | 'Dine-In';
   deliveryAddress?: string;
   specialInstructions?: string;
-  paymentMethod: 'GCash';
+  paymentMethod: 'GCash and Account Transfer';
 }
 
 export interface Feedback {

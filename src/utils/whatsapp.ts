@@ -20,7 +20,7 @@ export const buildWhatsAppOrderMessage = (
   if (orderDetails.orderType === 'Delivery' && orderDetails.deliveryAddress) {
     msg += `📍 *Address:* ${orderDetails.deliveryAddress}\n`;
   }
-  msg += `💳 *Payment:* GCash (Only Option)\n`;
+  msg += `💳 *Payment:* GCash and Account Transfer\n`;
   if (orderDetails.specialInstructions) {
     msg += `📝 *Order Note:* ${orderDetails.specialInstructions}\n`;
   }
@@ -28,7 +28,9 @@ export const buildWhatsAppOrderMessage = (
   msg += `📋 *ORDER ITEMS:*\n`;
 
   cartItems.forEach((item, index) => {
-    msg += `${index + 1}. *${item.dish.name}* x${item.quantity} = ₱${(item.dish.price * item.quantity).toLocaleString()}\n`;
+    const isDessertOrDrink = item.dish.category === 'Desserts & Drinks';
+    const spiceInfo = !isDessertOrDrink && item.selectedSpiceLevel ? ` [Spice: ${item.selectedSpiceLevel}]` : '';
+    msg += `${index + 1}. *${item.dish.name}*${spiceInfo} x${item.quantity} = ₱${(item.dish.price * item.quantity).toLocaleString()}\n`;
     if (item.instructions) {
       msg += `   └ Note: _${item.instructions}_\n`;
     }
@@ -37,11 +39,12 @@ export const buildWhatsAppOrderMessage = (
   msg += `------------------------------------\n`;
   msg += `💵 *Subtotal:* ₱${subtotal.toLocaleString()}\n`;
   if (orderDetails.orderType === 'Delivery') {
-    msg += `🛵 *Delivery Fee:* ₱${deliveryFee}\n`;
+    msg += `🛵 *Delivery Fee:* shouldered by the customer\n`;
   }
-  msg += `💰 *TOTAL AMOUNT:* *₱${grandTotal.toLocaleString()}*\n`;
+  msg += `💰 *TOTAL AMOUNT:* *₱${subtotal.toLocaleString()}*\n`;
   msg += `------------------------------------\n`;
-  msg += `✨ _Thank you for ordering from Currylicious by NAMS Home Kitchen!_`;
+  msg += `✨ _Thank you for ordering from Currylicious by NAMS Home Kitchen!_\n`;
+  msg += `🛵 _The delivery will be charged according to your location._`;
 
   return msg;
 };

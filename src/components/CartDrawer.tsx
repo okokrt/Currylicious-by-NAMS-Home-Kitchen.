@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { CartItem, OrderDetails, StoreSettings } from '../types';
+import { CartItem, OrderDetails, StoreSettings, CustomerSpiceLevel } from '../types';
 import { ShoppingBag, X, Trash2, MessageSquare, Phone, Sparkles, MapPin, User, Clock, CreditCard, ChevronRight, AlertCircle } from 'lucide-react';
 
 interface CartDrawerProps {
   isOpen: boolean;
   onClose: () => void;
   cartItems: CartItem[];
-  onUpdateQuantity: (dishId: string, qty: number) => void;
-  onUpdateInstructions: (dishId: string, text: string) => void;
+  onUpdateQuantity: (cartIndex: number, qty: number) => void;
+  onUpdateInstructions: (cartIndex: number, text: string) => void;
+  onUpdateSpiceLevel?: (cartIndex: number, level: CustomerSpiceLevel) => void;
   onClearCart: () => void;
   onSendWhatsAppOrder: (orderDetails: OrderDetails) => void;
   storeSettings: StoreSettings;
@@ -19,6 +20,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
   cartItems,
   onUpdateQuantity,
   onUpdateInstructions,
+  onUpdateSpiceLevel,
   onClearCart,
   onSendWhatsAppOrder,
   storeSettings,
@@ -29,7 +31,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     orderType: 'Delivery',
     deliveryAddress: '',
     specialInstructions: '',
-    paymentMethod: 'GCash',
+    paymentMethod: 'GCash and Account Transfer',
   });
 
   const [aiPairingTip, setAiPairingTip] = useState<string>('');
@@ -39,8 +41,7 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
     (acc, item) => acc + item.dish.price * item.quantity,
     0
   );
-  const deliveryFee = orderDetails.orderType === 'Delivery' && subtotal > 0 ? 50 : 0;
-  const totalPrice = subtotal + deliveryFee;
+  const totalPrice = subtotal;
 
   // Fetch AI Pairing Suggestion when cart changes
   useEffect(() => {
@@ -168,58 +169,91 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
           ) : (
             /* Item List */
             <div className="space-y-3">
-              {cartItems.map((item) => (
-                <div
-                  key={item.dish.id}
-                  className="bg-white rounded-xl p-3 border border-[#EAE2D7] shadow-xs space-y-2"
-                >
-                  <div className="flex items-start gap-3">
-                    <img
-                      src={item.dish.imageUrl}
-                      alt={item.dish.name}
-                      className="w-14 h-14 rounded-lg object-cover shrink-0 border border-[#E8E0D5]"
-                      referrerPolicy="no-referrer"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-serif font-bold text-sm text-[#2D241E] truncate">
-                        {item.dish.name}
-                      </h4>
-                      <div className="text-xs font-extrabold text-[#C05621] mt-0.5">
-                        ₱{item.dish.price.toLocaleString()}{' '}
-                        <span className="text-[10px] font-normal text-[#6E5E53]">each</span>
+              {cartItems.map((item, index) => {
+                const isDessertOrDrink = item.dish.category === 'Desserts & Drinks';
+                return (
+                  <div
+                    key={`${item.dish.id}-${index}`}
+                    className="bg-white rounded-xl p-3 border border-[#EAE2D7] shadow-xs space-y-2"
+                  >
+                    <div className="flex items-start gap-3">
+                      <img
+                        src={item.dish.imageUrl}
+                        alt={item.dish.name}
+                        className="w-14 h-14 rounded-lg object-cover shrink-0 border border-[#E8E0D5]"
+                        referrerPolicy="no-referrer"
+                      />
+                      <div className="flex-1 min-w-0">
+                        <h4 className="font-serif font-bold text-sm text-[#2D241E] truncate">
+                          {item.dish.name}
+                        </h4>
+                        <div className="text-xs font-extrabold text-[#C05621] mt-0.5">
+                          ₱{item.dish.price.toLocaleString()}{' '}
+                          <span className="text-[10px] font-normal text-[#6E5E53]">each</span>
+                        </div>
+
+                        {/* Spice Level Selector inside Cart (Disabled for Desserts & Drinks) */}
+                        {!isDessertOrDrink && (
+                          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[11px]">
+                            <span className="font-bold text-[#6E5E53]">Spice:</span>
+                            <div className="inline-flex gap-0.5 bg-[#FAF6F0] p-0.5 rounded-lg border border-[#D9CEBF]">
+                              {(['Mild', 'Medium', 'Hot'] as CustomerSpiceLevel[]).map((lvl) => {
+                                const active = (item.selectedSpiceLevel || 'Medium') === lvl;
+                                return (
+                                  <button
+                                    key={lvl}
+                                    type="button"
+                                    onClick={() => onUpdateSpiceLevel && onUpdateSpiceLevel(index, lvl)}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] font-bold transition ${
+                                      active
+                                        ? lvl === 'Mild'
+                                          ? 'bg-emerald-600 text-white shadow-2xs'
+                                          : lvl === 'Medium'
+                                          ? 'bg-[#C05621] text-white shadow-2xs'
+                                          : 'bg-rose-700 text-white shadow-2xs'
+                                        : 'text-[#2D241E] hover:bg-[#EFE8DE]'
+                                    }`}
+                                  >
+                                    {lvl === 'Mild' ? '🌶️ Mild' : lvl === 'Medium' ? '🌶️ Med' : '🔥 Hot'}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Quantity Controls */}
+                      <div className="flex items-center gap-1 bg-[#FAF6F0] rounded-lg p-1 border border-[#D9CEBF]">
+                        <button
+                          onClick={() => onUpdateQuantity(index, item.quantity - 1)}
+                          className="w-6 h-6 rounded bg-[#EFE8DE] hover:bg-[#E3D8C8] text-[#2D241E] flex items-center justify-center font-bold text-xs"
+                        >
+                          -
+                        </button>
+                        <span className="text-xs font-bold text-[#2D241E] w-5 text-center">
+                          {item.quantity}
+                        </span>
+                        <button
+                          onClick={() => onUpdateQuantity(index, item.quantity + 1)}
+                          className="w-6 h-6 rounded bg-[#C05621] hover:bg-[#A84719] text-white flex items-center justify-center font-bold text-xs"
+                        >
+                          +
+                        </button>
                       </div>
                     </div>
 
-                    {/* Quantity Controls */}
-                    <div className="flex items-center gap-1 bg-[#FAF6F0] rounded-lg p-1 border border-[#D9CEBF]">
-                      <button
-                        onClick={() => onUpdateQuantity(item.dish.id, item.quantity - 1)}
-                        className="w-6 h-6 rounded bg-[#EFE8DE] hover:bg-[#E3D8C8] text-[#2D241E] flex items-center justify-center font-bold text-xs"
-                      >
-                        -
-                      </button>
-                      <span className="text-xs font-bold text-[#2D241E] w-5 text-center">
-                        {item.quantity}
-                      </span>
-                      <button
-                        onClick={() => onUpdateQuantity(item.dish.id, item.quantity + 1)}
-                        className="w-6 h-6 rounded bg-[#C05621] hover:bg-[#A84719] text-white flex items-center justify-center font-bold text-xs"
-                      >
-                        +
-                      </button>
-                    </div>
+                    {/* Special Instruction Input */}
+                    <input
+                      type="text"
+                      value={item.instructions || ''}
+                      onChange={(e) => onUpdateInstructions(index, e.target.value)}
+                      placeholder="Custom instruction (e.g. Extra sauce, no coriander)..."
+                      className="w-full px-2.5 py-1 bg-[#FAF6F0] border border-[#D9CEBF] rounded-lg text-xs text-[#2D241E] placeholder-[#9A8B7E] focus:outline-none focus:border-[#C05621]"
+                    />
                   </div>
-
-                  {/* Special Instruction Input */}
-                  <input
-                    type="text"
-                    value={item.instructions || ''}
-                    onChange={(e) => onUpdateInstructions(item.dish.id, e.target.value)}
-                    placeholder="Custom instruction (e.g. Extra spicy, no coriander)..."
-                    className="w-full px-2.5 py-1 bg-[#FAF6F0] border border-[#D9CEBF] rounded-lg text-xs text-[#2D241E] placeholder-[#9A8B7E] focus:outline-none focus:border-[#C05621]"
-                  />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
 
@@ -300,22 +334,21 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               )}
 
-              {/* Payment Method Option - GCash Only */}
+              {/* Payment Method Option - GCash and Account Transfer */}
               <div>
                 <label className="block text-[11px] font-semibold text-[#2D241E] mb-1">
                   Payment Method
                 </label>
                 <div className="flex items-center gap-3 p-2.5 bg-[#F0F7FF] border border-[#BEE3F8] rounded-lg">
                   <div className="w-8 h-8 rounded-md bg-[#005CE6] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
-                    G
+                    💳
                   </div>
                   <div className="flex-1">
-                    <div className="text-xs font-bold text-[#2D241E] flex items-center justify-between">
-                      <span>GCash Only</span>
-                      <span className="text-[10px] bg-[#005CE6] text-white font-semibold px-2 py-0.5 rounded-full">Primary</span>
+                    <div className="text-xs font-bold text-[#2D241E]">
+                      <span>GCash and Account Transfer</span>
                     </div>
                     <p className="text-[10px] text-[#4A5568] mt-0.5">
-                      Send GCash payment to: <span className="font-semibold text-[#2D241E]">{storeSettings.phoneNumber || '+63 917 677 9779'}</span>
+                      Send payment to: <span className="font-semibold text-[#2D241E]">{storeSettings.phoneNumber || '+63 917 677 9779'}</span>
                     </p>
                   </div>
                 </div>
@@ -349,8 +382,8 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
               </div>
               {orderDetails.orderType === 'Delivery' && (
                 <div className="flex justify-between text-[#C05621]">
-                  <span>Estimated Delivery Fee:</span>
-                  <span className="font-semibold">₱{deliveryFee}</span>
+                  <span>Delivery Fee:</span>
+                  <span className="font-semibold text-right">Shouldered by customer</span>
                 </div>
               )}
               <div className="flex justify-between text-sm sm:text-base font-extrabold text-[#2D241E] pt-1.5 border-t border-[#E8E0D5]">

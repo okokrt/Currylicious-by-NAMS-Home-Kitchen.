@@ -1,5 +1,5 @@
-import React from 'react';
-import { MenuItem, UserRole } from '../types';
+import React, { useState } from 'react';
+import { MenuItem, UserRole, CustomerSpiceLevel } from '../types';
 import { Heart, Flame, Plus, Minus, Edit2, Trash2, Clock, Sparkles } from 'lucide-react';
 
 interface DishCardProps {
@@ -9,7 +9,7 @@ interface DishCardProps {
   cartQuantity: number;
   isStoreOpen?: boolean;
   onToggleFavorite: (dishId: string) => void;
-  onAddToCart: (dish: MenuItem) => void;
+  onAddToCart: (dish: MenuItem, selectedSpiceLevel?: CustomerSpiceLevel) => void;
   onUpdateQuantity: (dishId: string, qty: number) => void;
   onEditDish?: (dish: MenuItem) => void;
   onDeleteDish?: (dishId: string) => void;
@@ -29,6 +29,9 @@ export const DishCard: React.FC<DishCardProps> = ({
   onDeleteDish,
   onToggleAvailability,
 }) => {
+  const [selectedSpiceLevel, setSelectedSpiceLevel] = useState<CustomerSpiceLevel>('Medium');
+
+  const isDessertOrDrink = dish.category === 'Desserts & Drinks';
   const renderSpiceIndicator = (level?: string) => {
     if (!level || level === 'Mild') return null;
     const count = level === 'Medium' ? 1 : level === 'Spicy' ? 2 : 3;
@@ -124,6 +127,49 @@ export const DishCard: React.FC<DishCardProps> = ({
           </p>
         </div>
 
+        {/* Customer Spice Level Selection (Non-Desserts/Drinks) */}
+        {role === 'customer' && !isDessertOrDrink && dish.isAvailable && isStoreOpen && (
+          <div className="pt-2 border-t border-[#EAE2D7]">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-[#6E5E53] mb-1.5">
+              <span>Choose Spice Level:</span>
+              <span className="text-[10px] text-[#C05621] font-bold">
+                {selectedSpiceLevel === 'Mild' && '🌶️ Mild'}
+                {selectedSpiceLevel === 'Medium' && '🌶️🌶️ Medium'}
+                {selectedSpiceLevel === 'Hot' && '🔥 Hot'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-1 bg-[#FAF6F0] p-1 rounded-xl border border-[#D9CEBF]">
+              {(['Mild', 'Medium', 'Hot'] as CustomerSpiceLevel[]).map((level) => {
+                const isSelected = selectedSpiceLevel === level;
+                return (
+                  <button
+                    key={level}
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedSpiceLevel(level);
+                    }}
+                    className={`py-1 px-1.5 rounded-lg text-[11px] font-bold transition text-center flex items-center justify-center gap-0.5 ${
+                      isSelected
+                        ? level === 'Mild'
+                          ? 'bg-emerald-600 text-white shadow-xs'
+                          : level === 'Medium'
+                          ? 'bg-[#C05621] text-white shadow-xs'
+                          : 'bg-rose-700 text-white shadow-xs'
+                        : 'text-[#2D241E] hover:bg-[#EFE8DE]'
+                    }`}
+                  >
+                    {level === 'Mild' && '🌶️'}
+                    {level === 'Medium' && '🌶️'}
+                    {level === 'Hot' && '🔥'}
+                    <span>{level}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Action Controls */}
         <div className="pt-2 border-t border-[#EAE2D7]">
           {role === 'customer' ? (
@@ -144,7 +190,7 @@ export const DishCard: React.FC<DishCardProps> = ({
                       alert('Sorry, the kitchen is closed right now.');
                       return;
                     }
-                    onUpdateQuantity(dish.id, cartQuantity + 1);
+                    onAddToCart(dish, isDessertOrDrink ? undefined : selectedSpiceLevel);
                   }}
                   className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm transition active:scale-90 ${
                     isStoreOpen
@@ -163,7 +209,7 @@ export const DishCard: React.FC<DishCardProps> = ({
                     alert('Sorry, the kitchen is closed right now.');
                     return;
                   }
-                  onAddToCart(dish);
+                  onAddToCart(dish, isDessertOrDrink ? undefined : selectedSpiceLevel);
                 }}
                 className={`w-full py-2.5 px-3 rounded-xl font-bold text-xs sm:text-sm flex items-center justify-center gap-1.5 transition shadow-xs ${
                   !isStoreOpen
