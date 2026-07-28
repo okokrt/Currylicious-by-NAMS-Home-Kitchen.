@@ -1,0 +1,8 @@
+{
+  "name": "Remix Currylicious by NAMS Home Kitchen 2.0",
+  "description": "Mobile-optimized restaurant app for Currylicious by NAMS Home Kitchen. View menu, manage custom dishes, add favorites, and place seamless WhatsApp orders.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

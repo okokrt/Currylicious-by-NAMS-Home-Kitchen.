@@ -1,11 +1,46 @@
-<div align="center">
+# Remix Currylicious by NAMS Home Kitchen 2.0
 
-<img width="1200" height="475" alt="GHBanner" src="https://github.com/user-attachments/assets/0aa67016-6eaf-458a-adb2-6e31a0763ed6" />
+Mobile-optimized restaurant application for Currylicious by NAMS Home Kitchen. View menu, manage custom dishes, add favorites, and place seamless WhatsApp orders.
 
-  <h1>Built with AI Studio</h2>
+## Deploying to Vercel
 
-  <p>The fastest path from prompt to production with Gemini.</p>
+This project is pre-configured for seamless deployment on **Vercel** with both static frontend assets and Express API serverless functions.
 
-  <a href="https://aistudio.google.com/apps">Start building</a>
+### Option 1: Deploy via Vercel Dashboard & GitHub
 
-</div>
+1. Push this repository to GitHub.
+2. Go to [Vercel Dashboard](https://vercel.com/new) and select **Import Project**.
+3. Select your repository.
+4. **Environment Variables**:
+   - Set `GEMINI_API_KEY` in the Environment Variables section (Required for AI dish descriptions and food pairing suggestions).
+5. Click **Deploy**.
+
+Vercel will automatically apply the pre-configured deployment settings from `vercel.json`:
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Serverless API Routes**: Handled via `api/index.ts` for all `/api/*` requests.
+
+### Option 2: Deploy via Vercel CLI
+
+1. Install Vercel CLI:
+   ```bash
+   npm i -g vercel
+   ```
+2. Deploy directly from your terminal:
+   ```bash
+   vercel
+   ```
+3. Set your `GEMINI_API_KEY` in the project settings on Vercel.
+
+## Local & Container Development
+
+To run locally in dev mode:
+```bash
+npm run dev
+```
+
+To build and start the server:
+```bash
+npm run build
+npm start
+```
