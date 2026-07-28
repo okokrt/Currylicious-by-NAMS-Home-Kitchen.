@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { CartItem, OrderDetails, StoreSettings } from '../types';
-import { MessageSquare, Copy, Check, Phone, X, ExternalLink } from 'lucide-react';
+import { buildWhatsAppOrderMessage, generateWhatsAppUrl } from '../utils/whatsapp';
+import { MessageSquare, Copy, Check, Phone, X, ExternalLink, CheckCircle } from 'lucide-react';
 
 interface WhatsAppOrderModalProps {
   isOpen: boolean;
@@ -23,54 +24,8 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
 
   if (!isOpen) return null;
 
-  const subtotal = cartItems.reduce(
-    (acc, item) => acc + item.dish.price * item.quantity,
-    0
-  );
-  const deliveryFee = orderDetails.orderType === 'Delivery' ? 50 : 0;
-  const grandTotal = subtotal + deliveryFee;
-
-  // Build formatted WhatsApp message with markdown styling (*bold*, emojis, line breaks)
-  const buildWhatsAppMessage = (): string => {
-    let msg = `*🌶️ NEW ORDER - ${storeSettings.restaurantName}*\n`;
-    msg += `------------------------------------\n`;
-    msg += `👤 *Customer:* ${orderDetails.customerName}\n`;
-    msg += `📞 *Phone:* ${orderDetails.contactNumber}\n`;
-    msg += `🛵 *Type:* ${orderDetails.orderType}\n`;
-    if (orderDetails.orderType === 'Delivery' && orderDetails.deliveryAddress) {
-      msg += `📍 *Address:* ${orderDetails.deliveryAddress}\n`;
-    }
-    msg += `💳 *Payment:* ${orderDetails.paymentMethod}\n`;
-    if (orderDetails.specialInstructions) {
-      msg += `📝 *Order Note:* ${orderDetails.specialInstructions}\n`;
-    }
-    msg += `------------------------------------\n`;
-    msg += `📋 *ORDER ITEMS:*\n`;
-
-    cartItems.forEach((item, index) => {
-      msg += `${index + 1}. *${item.dish.name}* x${item.quantity} = ₱${(item.dish.price * item.quantity).toLocaleString()}\n`;
-      if (item.instructions) {
-        msg += `   └ Note: _${item.instructions}_\n`;
-      }
-    });
-
-    msg += `------------------------------------\n`;
-    msg += `💵 *Subtotal:* ₱${subtotal.toLocaleString()}\n`;
-    if (orderDetails.orderType === 'Delivery') {
-      msg += `🛵 *Delivery Fee:* ₱${deliveryFee}\n`;
-    }
-    msg += `💰 *TOTAL AMOUNT:* *₱${grandTotal.toLocaleString()}*\n`;
-    msg += `------------------------------------\n`;
-    msg += `✨ _Thank you for ordering from Currylicious by NAMS Home Kitchen!_`;
-
-    return msg;
-  };
-
-  const rawText = buildWhatsAppMessage();
-  const encodedText = encodeURIComponent(rawText);
-  // Clean phone number for wa.me URL
-  const cleanPhone = storeSettings.whatsappNumber.replace(/[^0-9]/g, '');
-  const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodedText}`;
+  const rawText = buildWhatsAppOrderMessage(cartItems, orderDetails, storeSettings);
+  const whatsappUrl = generateWhatsAppUrl(cartItems, orderDetails, storeSettings);
 
   const handleCopyText = () => {
     navigator.clipboard.writeText(rawText);
@@ -95,15 +50,18 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
             </div>
             <div>
               <h3 className="font-serif font-bold text-base sm:text-lg text-white">
-                WhatsApp Order Summary
+                WhatsApp Order Sent to Owner
               </h3>
               <p className="text-xs text-emerald-100">
-                Ready to send to Currylicious by NAMS Home Kitchen
+                Directly sent to {storeSettings.restaurantName} (+63 917 677 9779)
               </p>
             </div>
           </div>
           <button
-            onClick={onClose}
+            onClick={() => {
+              onConfirmOrderSent();
+              onClose();
+            }}
             className="p-1 rounded-full hover:bg-white/20 text-white transition"
           >
             <X className="w-5 h-5" />
@@ -112,8 +70,18 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
 
         {/* Modal Body: Formatted Summary Box */}
         <div className="p-4 flex-1 overflow-y-auto space-y-3 no-scrollbar">
+          
+          {/* Auto-Dispatched Banner */}
+          <div className="p-3 bg-[#E6F4EA] border border-[#34A853]/30 rounded-xl flex items-start gap-2.5 text-xs text-[#137333]">
+            <CheckCircle className="w-5 h-5 shrink-0 text-[#34A853] mt-0.5" />
+            <div>
+              <span className="font-bold block">Order automatically sent to WhatsApp!</span>
+              <span>Your complete order summary has been prefilled and sent to the owner on WhatsApp. If popups were blocked, click <strong>"Re-open WhatsApp Chat"</strong> below.</span>
+            </div>
+          </div>
+
           <div className="flex items-center justify-between text-xs text-[#6E5E53] px-1">
-            <span>Generated Message Preview:</span>
+            <span>Sent Message Summary:</span>
             <button
               onClick={handleCopyText}
               className="flex items-center gap-1 text-[#128C7E] hover:text-[#075E54] font-bold"
@@ -121,7 +89,7 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
               {copied ? (
                 <>
                   <Check className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Copied to Clipboard!</span>
+                  <span>Copied!</span>
                 </>
               ) : (
                 <>
@@ -144,7 +112,7 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
             className="w-full py-3 px-4 rounded-xl bg-[#25D366] hover:bg-[#20bd5a] text-white font-extrabold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition"
           >
             <MessageSquare className="w-5 h-5 fill-white" />
-            <span>Send Order via WhatsApp Now</span>
+            <span>Re-open WhatsApp Chat with Owner</span>
             <ExternalLink className="w-4 h-4" />
           </button>
 
@@ -161,7 +129,7 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
               className="py-2 px-3 rounded-lg bg-[#FAF6F0] hover:bg-[#EFE8DE] text-[#2D241E] text-xs font-semibold border border-[#D9CEBF] flex items-center justify-center gap-1.5 transition text-center"
             >
               <Phone className="w-3.5 h-3.5 text-[#C05621]" />
-              <span>Call Owner</span>
+              <span>Call Owner ({storeSettings.phoneNumber})</span>
             </a>
           </div>
         </div>
@@ -170,3 +138,4 @@ export const WhatsAppOrderModal: React.FC<WhatsAppOrderModalProps> = ({
     </div>
   );
 };
+

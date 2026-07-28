@@ -300,20 +300,25 @@ export const CartDrawer: React.FC<CartDrawerProps> = ({
                 </div>
               )}
 
-              {/* Payment Method Option */}
+              {/* Payment Method Option - GCash Only */}
               <div>
                 <label className="block text-[11px] font-semibold text-[#2D241E] mb-1">
                   Payment Method
                 </label>
-                <select
-                  value={orderDetails.paymentMethod}
-                  onChange={(e) => setOrderDetails({ ...orderDetails, paymentMethod: e.target.value as any })}
-                  className="w-full px-2.5 py-1.5 bg-[#FAF6F0] border border-[#D9CEBF] rounded-lg text-[#2D241E] focus:outline-none focus:border-[#C05621]"
-                >
-                  <option value="GCash">GCash (Qr / Number)</option>
-                  <option value="Cash on Delivery">Cash on Delivery (COD)</option>
-                  <option value="Cash at Counter">Cash at Counter / Pickup</option>
-                </select>
+                <div className="flex items-center gap-3 p-2.5 bg-[#F0F7FF] border border-[#BEE3F8] rounded-lg">
+                  <div className="w-8 h-8 rounded-md bg-[#005CE6] text-white flex items-center justify-center font-bold text-xs shrink-0 shadow-xs">
+                    G
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs font-bold text-[#2D241E] flex items-center justify-between">
+                      <span>GCash Only</span>
+                      <span className="text-[10px] bg-[#005CE6] text-white font-semibold px-2 py-0.5 rounded-full">Primary</span>
+                    </div>
+                    <p className="text-[10px] text-[#4A5568] mt-0.5">
+                      Send GCash payment to: <span className="font-semibold text-[#2D241E]">{storeSettings.phoneNumber || '+63 917 677 9779'}</span>
+                    </p>
+                  </div>
+                </div>
               </div>
 
               {/* Additional Notes */}

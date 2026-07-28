@@ -36,7 +36,7 @@ export interface OrderDetails {
   orderType: 'Delivery' | 'Pickup' | 'Dine-In';
   deliveryAddress?: string;
   specialInstructions?: string;
-  paymentMethod: 'GCash' | 'Cash on Delivery' | 'Cash at Counter';
+  paymentMethod: 'GCash';
 }
 
 export interface Feedback {

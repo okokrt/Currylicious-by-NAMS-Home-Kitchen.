@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MenuItem, CartItem, UserRole, Category, StoreSettings, OrderDetails, Feedback } from './types';
 import { INITIAL_MENU_ITEMS, DEFAULT_STORE_SETTINGS, heroImg } from './data/initialMenu';
 import { INITIAL_FEEDBACKS } from './data/initialFeedbacks';
+import { generateWhatsAppUrl } from './utils/whatsapp';
 import { Header } from './components/Header';
 import { LoginModal } from './components/LoginModal';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -121,6 +122,7 @@ export default function App() {
 
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [currentOrderDetails, setCurrentOrderDetails] = useState<OrderDetails | null>(null);
+  const [activeOrderItems, setActiveOrderItems] = useState<CartItem[]>([]);
 
   // Persistence Effects
   useEffect(() => {
@@ -253,13 +255,23 @@ export default function App() {
 
   // Order Submission Handler
   const handleSendWhatsAppOrder = (orderDetails: OrderDetails) => {
+    // Generate full WhatsApp URL with order details formatted for the owner
+    const whatsappUrl = generateWhatsAppUrl(cartItems, orderDetails, storeSettings);
+    
+    // Automatically send/open WhatsApp with prefilled message to owner
+    window.open(whatsappUrl, '_blank');
+
+    // Save active order items for receipt view before clearing cart
+    setActiveOrderItems([...cartItems]);
     setCurrentOrderDetails(orderDetails);
     setIsCartOpen(false);
     setIsWhatsAppModalOpen(true);
+
+    // Clear active shopping cart
+    setCartItems([]);
   };
 
   const handleConfirmOrderSent = () => {
-    setCartItems([]);
     setIsWhatsAppModalOpen(false);
   };
 
@@ -521,7 +533,7 @@ export default function App() {
         <WhatsAppOrderModal
           isOpen={isWhatsAppModalOpen}
           onClose={() => setIsWhatsAppModalOpen(false)}
-          cartItems={cartItems}
+          cartItems={activeOrderItems.length > 0 ? activeOrderItems : cartItems}
           orderDetails={currentOrderDetails}
           storeSettings={storeSettings}
           onConfirmOrderSent={handleConfirmOrderSent}
