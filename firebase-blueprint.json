@@ -1,0 +1,52 @@
+{
+  "entities": {
+    "menuItems": {
+      "title": "Menu Item",
+      "description": "Food dishes available on the menu",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "description": { "type": "string" },
+        "price": { "type": "number" },
+        "category": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "spicyLevel": { "type": "string" },
+        "isVegetarian": { "type": "boolean" },
+        "isBestseller": { "type": "boolean" },
+        "isAvailable": { "type": "boolean" },
+        "preparationTimeMinutes": { "type": "number" }
+      },
+      "required": ["id", "name", "price", "category", "isAvailable"]
+    },
+    "storeSettings": {
+      "title": "Store Settings",
+      "description": "Global settings for the restaurant",
+      "type": "object",
+      "properties": {
+        "whatsappNumber": { "type": "string" },
+        "phoneNumber": { "type": "string" },
+        "restaurantName": { "type": "string" },
+        "tagline": { "type": "string" },
+        "isStoreOpen": { "type": "boolean" },
+        "announcement": { "type": "string" }
+      },
+      "required": ["whatsappNumber", "isStoreOpen"]
+    },
+    "feedbacks": {
+      "title": "Feedback",
+      "description": "Customer reviews and ratings",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerName": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "dishName": { "type": "string" },
+        "imageUrl": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "customerName", "rating", "comment"]
+    }
+  }
+}

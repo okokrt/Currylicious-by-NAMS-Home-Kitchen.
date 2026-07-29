@@ -3,6 +3,17 @@ import { MenuItem, CartItem, UserRole, Category, StoreSettings, OrderDetails, Fe
 import { INITIAL_MENU_ITEMS, DEFAULT_STORE_SETTINGS, heroImg } from './data/initialMenu';
 import { INITIAL_FEEDBACKS } from './data/initialFeedbacks';
 import { generateWhatsAppUrl } from './utils/whatsapp';
+import {
+  subscribeToMenuItems,
+  subscribeToStoreSettings,
+  subscribeToFeedbacks,
+  saveDishToDb,
+  deleteDishFromDb,
+  updateStoreSettingsInDb,
+  resetMenuInDb,
+  addFeedbackToDb,
+  deleteFeedbackFromDb,
+} from './lib/menuService';
 import { Header } from './components/Header';
 import { LoginModal } from './components/LoginModal';
 import { CategoryFilter } from './components/CategoryFilter';
@@ -12,7 +23,7 @@ import { WhatsAppOrderModal } from './components/WhatsAppOrderModal';
 import { OwnerDashboard } from './components/OwnerDashboard';
 import { DishFormModal } from './components/DishFormModal';
 import { FeedbackModal } from './components/FeedbackModal';
-import { ShoppingBag, Flame, Sparkles, Heart, Utensils, MessageSquare, Phone, RefreshCw, Store, Star, MessageSquarePlus, Search } from 'lucide-react';
+import { ShoppingBag, Flame, Sparkles, Heart, Utensils, MessageSquare, Phone, RefreshCw, Store, Star, MessageSquarePlus, Search, Loader2 } from 'lucide-react';
 
 const CATEGORIES: Category[] = [
   'All',
@@ -24,29 +35,18 @@ const CATEGORIES: Category[] = [
 ];
 
 export default function App() {
-  // State Initialization from LocalStorage
+  // User Role State
   const [role, setRole] = useState<UserRole>(() => {
     return (localStorage.getItem('currylicious_role') as UserRole) || 'customer';
   });
 
-  const [menuItems, setMenuItems] = useState<MenuItem[]>(() => {
-    const saved = localStorage.getItem('currylicious_menu');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          return parsed.map((item: any) => ({
-            ...item,
-            category: item.category === 'Filipino-Spice Fusion' ? 'Main Course' : item.category,
-          }));
-        }
-      } catch (e) {
-        console.error('Failed to parse menu items', e);
-      }
-    }
-    return INITIAL_MENU_ITEMS;
-  });
+  // Database-Synced State
+  const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
+  const [storeSettings, setStoreSettings] = useState<StoreSettings>(DEFAULT_STORE_SETTINGS);
+  const [feedbacks, setFeedbacks] = useState<Feedback[]>([]);
+  const [isLoadingMenu, setIsLoadingMenu] = useState(true);
 
+  // Client-Local State (Cart & Favorites)
   const [cartItems, setCartItems] = useState<CartItem[]>(() => {
     const saved = localStorage.getItem('currylicious_cart');
     if (saved) {
@@ -71,44 +71,9 @@ export default function App() {
     return ['curry-1', 'fusion-1'];
   });
 
-  const [storeSettings, setStoreSettings] = useState<StoreSettings>(() => {
-    const saved = localStorage.getItem('currylicious_store_settings');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return {
-          ...DEFAULT_STORE_SETTINGS,
-          ...parsed,
-          whatsappNumber: '639176779779',
-          phoneNumber: '+63 917 677 9779',
-          announcement: parsed.announcement && parsed.announcement.includes('Free Garlic Butter Naan') ? '' : (parsed.announcement || ''),
-        };
-      } catch (e) {
-        console.error('Failed to parse store settings', e);
-      }
-    }
-    return DEFAULT_STORE_SETTINGS;
-  });
-
-  const [feedbacks, setFeedbacks] = useState<Feedback[]>(() => {
-    const saved = localStorage.getItem('currylicious_feedbacks');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          return parsed;
-        }
-      } catch (e) {
-        console.error('Failed to parse feedbacks', e);
-      }
-    }
-    return INITIAL_FEEDBACKS;
-  });
-
   // UI Modals & Filters State
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState<boolean>(() => {
-    // Show login choice on first load if role not set explicitly
     return !localStorage.getItem('currylicious_role');
   });
 
@@ -124,11 +89,29 @@ export default function App() {
   const [currentOrderDetails, setCurrentOrderDetails] = useState<OrderDetails | null>(null);
   const [activeOrderItems, setActiveOrderItems] = useState<CartItem[]>([]);
 
-  // Persistence Effects
+  // Realtime Firestore Subscriptions (Syncs all updates across all devices instantly)
   useEffect(() => {
-    localStorage.setItem('currylicious_menu', JSON.stringify(menuItems));
-  }, [menuItems]);
+    const unsubMenu = subscribeToMenuItems((items) => {
+      setMenuItems(items);
+      setIsLoadingMenu(false);
+    });
 
+    const unsubSettings = subscribeToStoreSettings((settings) => {
+      setStoreSettings(settings);
+    });
+
+    const unsubFeedbacks = subscribeToFeedbacks((fbs) => {
+      setFeedbacks(fbs);
+    });
+
+    return () => {
+      unsubMenu();
+      unsubSettings();
+      unsubFeedbacks();
+    };
+  }, []);
+
+  // Client Persistence Effects for Local Cart & User Role
   useEffect(() => {
     localStorage.setItem('currylicious_cart', JSON.stringify(cartItems));
   }, [cartItems]);
@@ -138,29 +121,31 @@ export default function App() {
   }, [favoriteIds]);
 
   useEffect(() => {
-    localStorage.setItem('currylicious_store_settings', JSON.stringify(storeSettings));
-  }, [storeSettings]);
-
-  useEffect(() => {
-    localStorage.setItem('currylicious_feedbacks', JSON.stringify(feedbacks));
-  }, [feedbacks]);
-
-  useEffect(() => {
     localStorage.setItem('currylicious_role', role);
   }, [role]);
 
-  // Feedback Handlers
-  const handleAddFeedback = (newFb: Omit<Feedback, 'id' | 'createdAt'>) => {
+  // Feedback Handlers (Persisted to Firestore)
+  const handleAddFeedback = async (newFb: Omit<Feedback, 'id' | 'createdAt'>) => {
     const created: Feedback = {
       ...newFb,
       id: 'fb-' + Date.now(),
       createdAt: new Date().toISOString(),
     };
-    setFeedbacks((prev) => [created, ...prev]);
+    try {
+      await addFeedbackToDb(created);
+    } catch (err) {
+      console.error('Failed to save feedback to database', err);
+      alert('Error saving feedback. Please try again.');
+    }
   };
 
-  const handleDeleteFeedback = (id: string) => {
-    setFeedbacks((prev) => prev.filter((item) => item.id !== id));
+  const handleDeleteFeedback = async (id: string) => {
+    try {
+      await deleteFeedbackFromDb(id);
+    } catch (err) {
+      console.error('Failed to delete feedback from database', err);
+      alert('Error deleting feedback.');
+    }
   };
 
   // Cart Handlers
@@ -272,55 +257,87 @@ export default function App() {
     );
   };
 
-  // Owner Handlers
-  const handleSaveDish = (dishData: Partial<MenuItem>) => {
-    if (editingDish) {
-      setMenuItems((prev) =>
-        prev.map((item) =>
-          item.id === editingDish.id ? ({ ...item, ...dishData } as MenuItem) : item
-        )
-      );
-    } else {
-      setMenuItems((prev) => [dishData as MenuItem, ...prev]);
+  // Owner Handlers (Persisted directly to Database)
+  const handleSaveDish = async (dishData: Partial<MenuItem>) => {
+    try {
+      if (editingDish) {
+        const updated: MenuItem = { ...editingDish, ...dishData } as MenuItem;
+        await saveDishToDb(updated);
+      } else {
+        const newDish: MenuItem = {
+          id: 'dish-' + Date.now(),
+          name: dishData.name || 'New Dish',
+          description: dishData.description || '',
+          price: dishData.price || 0,
+          category: dishData.category || 'Main Course',
+          imageUrl: dishData.imageUrl || 'https://images.unsplash.com/photo-1588166524941-3bf61a9c41db?auto=format&fit=crop&q=80&w=800',
+          spicyLevel: dishData.spicyLevel || 'Mild',
+          isVegetarian: dishData.isVegetarian || false,
+          isBestseller: dishData.isBestseller || false,
+          isAvailable: dishData.isAvailable !== undefined ? dishData.isAvailable : true,
+          preparationTimeMinutes: dishData.preparationTimeMinutes || 15,
+        };
+        await saveDishToDb(newDish);
+      }
+    } catch (err) {
+      console.error('Failed to save dish to database:', err);
+      alert('Error saving dish. Please check your connection and try again.');
     }
     setEditingDish(null);
+    setIsDishModalOpen(false);
   };
 
-  const handleDeleteDish = (dishId: string) => {
+  const handleDeleteDish = async (dishId: string) => {
     if (confirm('Are you sure you want to delete this dish from the menu?')) {
-      setMenuItems((prev) => prev.filter((item) => item.id !== dishId));
-      setCartItems((prev) => prev.filter((item) => item.dish.id !== dishId));
+      try {
+        await deleteDishFromDb(dishId);
+        setCartItems((prev) => prev.filter((item) => item.dish.id !== dishId));
+      } catch (err) {
+        console.error('Failed to delete dish from database:', err);
+        alert('Error deleting dish.');
+      }
     }
   };
 
-  const handleToggleAvailability = (dishId: string) => {
-    setMenuItems((prev) =>
-      prev.map((item) =>
-        item.id === dishId ? { ...item, isAvailable: !item.isAvailable } : item
-      )
-    );
+  const handleToggleAvailability = async (dishId: string) => {
+    const target = menuItems.find((item) => item.id === dishId);
+    if (!target) return;
+    try {
+      await saveDishToDb({ ...target, isAvailable: !target.isAvailable });
+    } catch (err) {
+      console.error('Failed to toggle dish availability:', err);
+      alert('Error updating dish status.');
+    }
   };
 
-  const handleResetMenu = () => {
-    setMenuItems(INITIAL_MENU_ITEMS);
-    localStorage.removeItem('currylicious_menu');
+  const handleResetMenu = async () => {
+    try {
+      await resetMenuInDb();
+    } catch (err) {
+      console.error('Failed to reset menu in database:', err);
+      alert('Error resetting menu.');
+    }
+  };
+
+  const handleUpdateStoreSettings = async (newSettings: StoreSettings) => {
+    try {
+      await updateStoreSettingsInDb(newSettings);
+    } catch (err) {
+      console.error('Failed to update store settings in database:', err);
+      alert('Error saving store settings.');
+    }
   };
 
   // Order Submission Handler
   const handleSendWhatsAppOrder = (orderDetails: OrderDetails) => {
-    // Generate full WhatsApp URL with order details formatted for the owner
     const whatsappUrl = generateWhatsAppUrl(cartItems, orderDetails, storeSettings);
-    
-    // Automatically send/open WhatsApp with prefilled message to owner
     window.open(whatsappUrl, '_blank');
 
-    // Save active order items for receipt view before clearing cart
     setActiveOrderItems([...cartItems]);
     setCurrentOrderDetails(orderDetails);
     setIsCartOpen(false);
     setIsWhatsAppModalOpen(true);
 
-    // Clear active shopping cart
     setCartItems([]);
   };
 
@@ -328,12 +345,11 @@ export default function App() {
     setIsWhatsAppModalOpen(false);
   };
 
-  // Filtered Dishes Computation (Real-time Search)
+  // Filtered Dishes Computation
   const filteredDishes = menuItems.filter((dish) => {
     if (showFavoritesOnly && !favoriteIds.includes(dish.id)) {
       return false;
     }
-    // Real-time search filter takes precedence across all dishes
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase().trim();
       const matchName = dish.name.toLowerCase().includes(q);
@@ -371,7 +387,7 @@ export default function App() {
       {role === 'owner' && (
         <OwnerDashboard
           storeSettings={storeSettings}
-          onUpdateStoreSettings={(newSettings) => setStoreSettings(newSettings)}
+          onUpdateStoreSettings={handleUpdateStoreSettings}
           onAddNewDish={() => {
             setEditingDish(null);
             setIsDishModalOpen(true);
@@ -482,14 +498,22 @@ export default function App() {
           )}
         </div>
 
-        {/* Empty Search / Favorites State */}
-        {filteredDishes.length === 0 ? (
+        {/* Loading Indicator */}
+        {isLoadingMenu ? (
+          <div className="py-20 text-center space-y-3">
+            <Loader2 className="w-8 h-8 mx-auto text-[#C05621] animate-spin" />
+            <p className="text-xs text-[#6E5E53] font-medium">Connecting to menu database...</p>
+          </div>
+        ) : filteredDishes.length === 0 ? (
+          /* Empty Search / Favorites / Empty Menu State */
           <div className="py-16 text-center space-y-3 bg-white rounded-2xl border border-[#EAE2D7] p-6 max-w-md mx-auto my-8 shadow-xs">
             <Utensils className="w-12 h-12 mx-auto text-[#C05621]/40" />
             <h3 className="font-serif font-bold text-lg text-[#2D241E]">No dishes found</h3>
             <p className="text-xs text-[#6E5E53]">
               {showFavoritesOnly
                 ? "You haven't saved any favorite dishes yet! Click the heart icon on any dish to save it here."
+                : menuItems.length === 0
+                ? "The menu is currently empty. Owner can add new dishes using the '+ Add Dish' button."
                 : "No menu items match your search or category filter."}
             </p>
             {(showFavoritesOnly || searchQuery || activeCategory !== 'All') && (
@@ -657,3 +681,4 @@ export default function App() {
     </div>
   );
 }
+

@@ -1,5 +1,8 @@
 import express from 'express';
+import dotenv from 'dotenv';
 import { GoogleGenAI } from '@google/genai';
+
+dotenv.config();
 
 const app = express();
 
@@ -8,18 +11,19 @@ app.use(express.json({ limit: '10mb' }));
 // Initialize Gemini SDK lazily for server-side API calls
 let aiClient: GoogleGenAI | null = null;
 function getGeminiClient() {
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    return null;
+  }
   if (!aiClient) {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      aiClient = new GoogleGenAI({
-        apiKey,
-        httpOptions: {
-          headers: {
-            'User-Agent': 'aistudio-build',
-          },
+    aiClient = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
         },
-      });
-    }
+      },
+    });
   }
   return aiClient;
 }

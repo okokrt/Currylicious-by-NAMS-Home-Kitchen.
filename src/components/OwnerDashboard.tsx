@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StoreSettings } from '../types';
 import { Plus, Settings, MessageSquare, Phone, RotateCcw, LogOut, Check, ShieldCheck } from 'lucide-react';
 
@@ -24,6 +24,13 @@ export const OwnerDashboard: React.FC<OwnerDashboardProps> = ({
   const [announcement, setAnnouncement] = useState(storeSettings.announcement || '');
   const [isOpen, setIsOpen] = useState(storeSettings.isStoreOpen);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  useEffect(() => {
+    setWhatsappNum(storeSettings.whatsappNumber);
+    setPhoneNum(storeSettings.phoneNumber);
+    setAnnouncement(storeSettings.announcement || '');
+    setIsOpen(storeSettings.isStoreOpen);
+  }, [storeSettings]);
 
   const handleSaveSettings = (e: React.FormEvent) => {
     e.preventDefault();
