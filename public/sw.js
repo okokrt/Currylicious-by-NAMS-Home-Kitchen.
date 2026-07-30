@@ -1,9 +1,9 @@
-const CACHE_NAME = 'currylicious-pwa-v1';
+const CACHE_NAME = 'currylicious-pwa-v2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
-  '/favicon.svg',
+  '/logo.png',
   '/favicon-32x32.png',
   '/apple-touch-icon.png',
   '/icons/icon-192.png',
