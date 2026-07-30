@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Heart, ShieldCheck, User, Store, Phone, MessageSquare, Star, Download, CheckCircle2 } from 'lucide-react';
+import { ShoppingBag, Heart, ShieldCheck, User, Store, Phone, MessageSquare, Star, Download, CheckCircle2, Share2 } from 'lucide-react';
 import { UserRole, StoreSettings } from '../types';
 import logoImg from '../assets/images/currylicious_logo_1785234718076.jpg';
 
@@ -15,6 +15,7 @@ interface HeaderProps {
   storeSettings: StoreSettings;
   onOpenInstallModal?: () => void;
   isStandalone?: boolean;
+  isIOS?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -29,6 +30,7 @@ export const Header: React.FC<HeaderProps> = ({
   storeSettings,
   onOpenInstallModal,
   isStandalone,
+  isIOS,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-[#FAF6F0] text-[#2D241E] shadow-sm border-b border-[#E8E0D5]">
@@ -90,15 +92,15 @@ export const Header: React.FC<HeaderProps> = ({
             <span>WhatsApp</span>
           </a>
 
-          {/* PWA Install Button */}
+          {/* PWA Install / Add to Home Screen Button */}
           {onOpenInstallModal && !isStandalone && (
             <button
               onClick={onOpenInstallModal}
               className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-[#C05621] hover:bg-[#A84719] text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs active:scale-95"
-              title="Install Currylicious App on your device"
+              title={isIOS ? "Add Currylicious to Home Screen" : "Install Currylicious App on your device"}
             >
-              <Download className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Install App</span>
+              {isIOS ? <Share2 className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+              <span className="hidden sm:inline">{isIOS ? "Add to Home Screen" : "Install App"}</span>
             </button>
           )}
 

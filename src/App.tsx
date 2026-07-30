@@ -448,6 +448,7 @@ export default function App() {
         storeSettings={storeSettings}
         onOpenInstallModal={() => setIsInstallModalOpen(true)}
         isStandalone={isStandalone}
+        isIOS={isIOS}
       />
 
       {/* Owner Control Dashboard Bar */}

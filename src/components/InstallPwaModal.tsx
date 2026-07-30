@@ -83,8 +83,12 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
             alt="Currylicious"
             className="w-16 h-16 rounded-full mx-auto mb-2 border-2 border-amber-200 shadow-md object-cover"
           />
-          <h2 className="font-serif font-bold text-lg sm:text-xl tracking-tight">Important Installation Instructions</h2>
-          <p className="text-xs text-amber-100 mt-0.5">Currylicious • NAMS Home Kitchen App</p>
+          <h2 className="font-serif font-bold text-lg sm:text-xl tracking-tight">
+            {isIOS ? 'Add to Home Screen' : 'Important Installation Instructions'}
+          </h2>
+          <p className="text-xs text-amber-100 mt-0.5">
+            {isIOS ? 'iPhone & iPad Safari Guide' : 'Currylicious • NAMS Home Kitchen App'}
+          </p>
         </div>
 
         {/* Modal Content */}
@@ -103,7 +107,56 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
                 Close Window
               </button>
             </div>
+          ) : isIOS ? (
+            /* Dedicated Apple iOS & iPadOS Safari Step-by-Step Installation Guide */
+            <div className="space-y-4">
+              <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-3.5 text-left text-xs text-[#2D241E] flex items-center gap-2.5">
+                <Info className="w-5 h-5 text-[#C05621] shrink-0" />
+                <div>
+                  <span className="font-bold block text-sm text-[#9A3412]">iOS Installation Guide</span>
+                  <span className="text-[#6E5E53]">Safari on iPhone and iPad uses manual Home Screen addition:</span>
+                </div>
+              </div>
+
+              <ol className="space-y-2.5 text-xs text-[#2D241E] font-medium">
+                <li className="flex items-start gap-3 bg-white p-3 rounded-xl border border-[#E8E0D5] shadow-2xs">
+                  <span className="w-6 h-6 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">1</span>
+                  <div className="pt-0.5 leading-relaxed">
+                    Tap the <span className="font-bold text-[#C05621]">Share button</span> (<Share2 className="w-4 h-4 inline text-[#C05621] -mt-0.5" />) in Safari's bottom toolbar.
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 bg-white p-3 rounded-xl border border-[#E8E0D5] shadow-2xs">
+                  <span className="w-6 h-6 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">2</span>
+                  <div className="pt-0.5 leading-relaxed">
+                    Scroll down and tap <span className="font-bold text-[#2D241E]">"Add to Home Screen"</span> (<PlusSquare className="w-4 h-4 inline text-[#C05621] -mt-0.5" />).
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 bg-white p-3 rounded-xl border border-[#E8E0D5] shadow-2xs">
+                  <span className="w-6 h-6 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">3</span>
+                  <div className="pt-0.5 leading-relaxed">
+                    Tap <span className="font-bold text-[#2D241E]">"Add"</span> in the top right corner.
+                  </div>
+                </li>
+                <li className="flex items-start gap-3 bg-white p-3 rounded-xl border border-[#E8E0D5] shadow-2xs">
+                  <span className="w-6 h-6 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">4</span>
+                  <div className="pt-0.5 leading-relaxed">
+                    The <span className="font-bold text-[#C05621]">Currylicious</span> app icon will appear on your Home Screen!
+                  </div>
+                </li>
+              </ol>
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="w-full py-3 bg-[#C05621] hover:bg-[#A84719] text-white font-bold text-xs sm:text-sm rounded-xl transition shadow-md text-center active:scale-98"
+                >
+                  Got It
+                </button>
+              </div>
+            </div>
           ) : (
+            /* Android / Windows / macOS / Linux / ChromeOS Flow */
             <>
               {/* Important Installation Instructions Box */}
               <div className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-4 text-left text-[#2D241E] space-y-3 shadow-2xs">
@@ -171,45 +224,6 @@ export const InstallPwaModal: React.FC<InstallPwaModalProps> = ({
                     <Download className="w-4 h-4" />
                     <span>{installing ? 'Installing...' : 'Install App'}</span>
                   </button>
-                </div>
-              ) : isIOS ? (
-                /* iOS Safari Step-by-Step Instructions */
-                <div className="space-y-3 pt-2">
-                  <div className="bg-amber-50 border border-amber-200 p-3 rounded-xl flex items-center gap-2 text-xs text-[#2D241E] font-medium">
-                    <Info className="w-4 h-4 text-[#C05621] shrink-0" />
-                    <span>Next steps for iPhone / iPad (Safari):</span>
-                  </div>
-
-                  <ol className="space-y-2 text-xs text-[#2D241E]">
-                    <li className="flex items-start gap-2.5 bg-white p-2.5 rounded-lg border border-[#E8E0D5]">
-                      <span className="w-5 h-5 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">1</span>
-                      <div>
-                        Tap the <span className="font-bold text-[#C05621]">Share button</span> at the bottom of Safari (<Share2 className="w-3.5 h-3.5 inline text-[#C05621]" />).
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2.5 bg-white p-2.5 rounded-lg border border-[#E8E0D5]">
-                      <span className="w-5 h-5 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">2</span>
-                      <div>
-                        Scroll down and select <span className="font-bold text-[#2D241E]">"Add to Home Screen"</span> (<PlusSquare className="w-3.5 h-3.5 inline text-[#C05621]" />).
-                      </div>
-                    </li>
-                    <li className="flex items-start gap-2.5 bg-white p-2.5 rounded-lg border border-[#E8E0D5]">
-                      <span className="w-5 h-5 rounded-full bg-[#C05621] text-white font-bold text-xs flex items-center justify-center shrink-0">3</span>
-                      <div>
-                        Tap <span className="font-bold text-[#2D241E]">"Add"</span> at the top right.
-                      </div>
-                    </li>
-                  </ol>
-
-                  <div className="flex items-center gap-2.5 pt-1">
-                    <button
-                      type="button"
-                      onClick={onClose}
-                      className="w-full py-2.5 bg-[#2D241E] hover:bg-[#1F1814] text-white font-bold text-xs rounded-xl transition"
-                    >
-                      Close
-                    </button>
-                  </div>
                 </div>
               ) : (
                 /* Desktop / General Fallback Instructions */

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Download, X, Smartphone, Sparkles } from 'lucide-react';
+import { Download, X, Smartphone, Sparkles, Share2 } from 'lucide-react';
 import logoImg from '../assets/images/currylicious_logo_1785234718076.jpg';
 
 interface InstallPwaBannerProps {
@@ -29,7 +29,7 @@ export const InstallPwaBanner: React.FC<InstallPwaBannerProps> = ({
             <Sparkles className="w-3.5 h-3.5 text-amber-500 shrink-0" />
           </div>
           <p className="text-[11px] text-[#6E5E53] truncate">
-            {isIOS ? 'Add to Home Screen on iOS' : hasNativePrompt ? 'Tap to install app instantly' : 'Get quick 1-tap app access'}
+            {isIOS ? 'Add to Home Screen on Safari' : hasNativePrompt ? 'Tap to install app instantly' : 'Get quick 1-tap app access'}
           </p>
         </div>
       </div>
@@ -39,8 +39,8 @@ export const InstallPwaBanner: React.FC<InstallPwaBannerProps> = ({
           onClick={onOpenModal}
           className="px-3 py-1.5 bg-[#C05621] hover:bg-[#A84719] text-white text-xs font-bold rounded-xl transition shadow-xs flex items-center gap-1 active:scale-95"
         >
-          <Download className="w-3.5 h-3.5" />
-          <span>Install</span>
+          {isIOS ? <Share2 className="w-3.5 h-3.5" /> : <Download className="w-3.5 h-3.5" />}
+          <span>{isIOS ? 'Add to Home' : 'Install'}</span>
         </button>
         <button
           onClick={onDismiss}
