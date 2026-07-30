@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShoppingBag, Heart, ShieldCheck, User, Store, Phone, MessageSquare, Star } from 'lucide-react';
+import { ShoppingBag, Heart, ShieldCheck, User, Store, Phone, MessageSquare, Star, Download, CheckCircle2 } from 'lucide-react';
 import { UserRole, StoreSettings } from '../types';
 import logoImg from '../assets/images/currylicious_logo_1785234718076.jpg';
 
@@ -13,6 +13,8 @@ interface HeaderProps {
   onOpenFeedback: () => void;
   onSwitchRoleClick: () => void;
   storeSettings: StoreSettings;
+  onOpenInstallModal?: () => void;
+  isStandalone?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -25,6 +27,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenFeedback,
   onSwitchRoleClick,
   storeSettings,
+  onOpenInstallModal,
+  isStandalone,
 }) => {
   return (
     <header className="sticky top-0 z-30 bg-[#FAF6F0] text-[#2D241E] shadow-sm border-b border-[#E8E0D5]">
@@ -85,6 +89,28 @@ export const Header: React.FC<HeaderProps> = ({
             <MessageSquare className="w-3.5 h-3.5 fill-white text-white" />
             <span>WhatsApp</span>
           </a>
+
+          {/* PWA Install Button */}
+          {onOpenInstallModal && !isStandalone && (
+            <button
+              onClick={onOpenInstallModal}
+              className="p-2 sm:px-3 sm:py-1.5 rounded-full bg-[#C05621] hover:bg-[#A84719] text-white text-xs font-bold flex items-center gap-1.5 transition shadow-xs active:scale-95"
+              title="Install Currylicious App on your device"
+            >
+              <Download className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Install App</span>
+            </button>
+          )}
+
+          {isStandalone && (
+            <div
+              className="hidden sm:flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-800 text-[11px] font-bold"
+              title="Running in Standalone App Mode"
+            >
+              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+              <span>App Installed</span>
+            </div>
+          )}
 
           {/* Customer Feedback Button */}
           <button
@@ -156,3 +182,4 @@ export const Header: React.FC<HeaderProps> = ({
     </header>
   );
 };
+

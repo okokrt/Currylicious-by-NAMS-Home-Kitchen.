@@ -23,7 +23,9 @@ import { WhatsAppOrderModal } from './components/WhatsAppOrderModal';
 import { OwnerDashboard } from './components/OwnerDashboard';
 import { DishFormModal } from './components/DishFormModal';
 import { FeedbackModal } from './components/FeedbackModal';
-import { ShoppingBag, Flame, Sparkles, Heart, Utensils, MessageSquare, Phone, RefreshCw, Store, Star, MessageSquarePlus, Search, Loader2 } from 'lucide-react';
+import { InstallPwaModal } from './components/InstallPwaModal';
+import { InstallPwaBanner } from './components/InstallPwaBanner';
+import { ShoppingBag, Flame, Sparkles, Heart, Utensils, MessageSquare, Phone, RefreshCw, Store, Star, MessageSquarePlus, Search, Loader2, Download } from 'lucide-react';
 
 const CATEGORIES: Category[] = [
   'All',
@@ -88,6 +90,69 @@ export default function App() {
   const [isWhatsAppModalOpen, setIsWhatsAppModalOpen] = useState(false);
   const [currentOrderDetails, setCurrentOrderDetails] = useState<OrderDetails | null>(null);
   const [activeOrderItems, setActiveOrderItems] = useState<CartItem[]>([]);
+
+  // PWA Installation Prompt State
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [isInstallModalOpen, setIsInstallModalOpen] = useState(false);
+  const [isInstallBannerVisible, setIsInstallBannerVisible] = useState(false);
+  const [isStandalone, setIsStandalone] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+
+  useEffect(() => {
+    // Detect standalone mode
+    const inStandalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (window.navigator as any).standalone === true ||
+      document.referrer.includes('android-app://');
+    setIsStandalone(inStandalone);
+
+    // Detect iOS
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const iosDevice = /iphone|ipad|ipod/.test(userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    setIsIOS(iosDevice);
+
+    // Listen for beforeinstallprompt event
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+
+      const dismissedTime = localStorage.getItem('currylicious_pwa_banner_dismissed');
+      if (!inStandalone) {
+        if (!dismissedTime || Date.now() - parseInt(dismissedTime, 10) > 7 * 24 * 60 * 60 * 1000) {
+          setIsInstallBannerVisible(true);
+        }
+      }
+    };
+
+    // Listen for appinstalled event
+    const handleAppInstalled = () => {
+      console.log('[PWA] App installed successfully');
+      setDeferredPrompt(null);
+      setIsStandalone(true);
+      setIsInstallBannerVisible(false);
+      setIsInstallModalOpen(false);
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    window.addEventListener('appinstalled', handleAppInstalled);
+
+    if (iosDevice && !inStandalone) {
+      const dismissedTime = localStorage.getItem('currylicious_pwa_banner_dismissed');
+      if (!dismissedTime || Date.now() - parseInt(dismissedTime, 10) > 7 * 24 * 60 * 60 * 1000) {
+        setIsInstallBannerVisible(true);
+      }
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+      window.removeEventListener('appinstalled', handleAppInstalled);
+    };
+  }, []);
+
+  const handleDismissInstallBanner = () => {
+    setIsInstallBannerVisible(false);
+    localStorage.setItem('currylicious_pwa_banner_dismissed', Date.now().toString());
+  };
 
   // Realtime Firestore Subscriptions (Syncs all updates across all devices instantly)
   useEffect(() => {
@@ -381,6 +446,8 @@ export default function App() {
         onOpenFeedback={() => setIsFeedbackModalOpen(true)}
         onSwitchRoleClick={() => setIsLoginModalOpen(true)}
         storeSettings={storeSettings}
+        onOpenInstallModal={() => setIsInstallModalOpen(true)}
+        isStandalone={isStandalone}
       />
 
       {/* Owner Control Dashboard Bar */}
@@ -672,12 +739,41 @@ export default function App() {
       />
 
       {/* App Footer */}
-      <footer className="bg-[#2D241E] text-amber-100 border-t border-[#3D322B] py-6 px-4 text-center text-xs space-y-1">
+      <footer className="bg-[#2D241E] text-amber-100 border-t border-[#3D322B] py-6 px-4 text-center text-xs space-y-2">
         <p className="font-serif font-bold text-amber-200">Currylicious by NAMS Home Kitchen</p>
         <p className="text-amber-200/80">Warm Spices • Vibrant Herbs • Authentic Home Kitchen Comfort</p>
-        <p className="text-[10px] text-amber-200/50">WhatsApp Direct Integration & Dynamic Menu Persistence</p>
+        <div className="pt-1 flex items-center justify-center gap-3">
+          <button
+            onClick={() => setIsInstallModalOpen(true)}
+            className="px-3.5 py-1.5 rounded-full bg-[#C05621] hover:bg-[#A84719] text-white font-bold text-xs inline-flex items-center gap-1.5 transition shadow-xs"
+          >
+            <Download className="w-3.5 h-3.5" />
+            <span>Install App on Phone / Desktop</span>
+          </button>
+        </div>
+        <p className="text-[10px] text-amber-200/50">WhatsApp Direct Integration • Dynamic Cloud Persistence • PWA Ready</p>
       </footer>
 
+      {/* PWA Floating Install Banner */}
+      {isInstallBannerVisible && !isStandalone && (
+        <InstallPwaBanner
+          onOpenModal={() => setIsInstallModalOpen(true)}
+          onDismiss={handleDismissInstallBanner}
+          isIOS={isIOS}
+          hasNativePrompt={!!deferredPrompt}
+        />
+      )}
+
+      {/* PWA Installation Modal */}
+      <InstallPwaModal
+        isOpen={isInstallModalOpen}
+        onClose={() => setIsInstallModalOpen(false)}
+        deferredPrompt={deferredPrompt}
+        onInstallSuccess={() => {
+          setIsStandalone(true);
+          setIsInstallBannerVisible(false);
+        }}
+      />
     </div>
   );
 }

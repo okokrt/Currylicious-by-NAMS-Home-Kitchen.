@@ -1,0 +1,57 @@
+{
+  "name": "Currylicious by NAMS Home Kitchen",
+  "short_name": "Currylicious",
+  "description": "Authentic Indian Curry & Filipino-Spice Fusion Home Kitchen - Order Online via WhatsApp",
+  "start_url": "/",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#FAF6F0",
+  "theme_color": "#C05621",
+  "categories": ["food", "shopping", "lifestyle"],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "View Menu",
+      "short_name": "Menu",
+      "description": "Browse our full delicious curry & fusion menu",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Give Feedback",
+      "short_name": "Feedback",
+      "description": "Leave a review or feedback for NAMS Home Kitchen",
+      "url": "/?action=feedback",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    }
+  ],
+  "prefer_related_applications": false
+}
