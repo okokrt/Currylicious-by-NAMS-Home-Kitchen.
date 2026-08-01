@@ -6,6 +6,7 @@ import {
   deleteDoc,
   getDocs,
   getDoc,
+  getDocFromServer,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
@@ -17,6 +18,61 @@ const MENU_COLLECTION = 'menuItems';
 const SETTINGS_COLLECTION = 'settings';
 const STORE_DOC_ID = 'storeSettings';
 const FEEDBACKS_COLLECTION = 'feedbacks';
+
+export enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+export interface FirestoreErrorInfo {
+  error: string;
+  operationType: OperationType;
+  path: string | null;
+  timestamp: string;
+}
+
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+  const message = error instanceof Error ? error.message : String(error);
+  const errInfo: FirestoreErrorInfo = {
+    error: message,
+    operationType,
+    path,
+    timestamp: new Date().toISOString(),
+  };
+  console.error('[Firestore Error Details]:', JSON.stringify(errInfo, null, 2));
+  throw new Error(message);
+}
+
+/**
+ * Remove any undefined properties from an object so Firestore setDoc does not throw errors
+ */
+function sanitizeForFirestore<T extends Record<string, any>>(data: T): Record<string, any> {
+  const clean: Record<string, any> = {};
+  Object.keys(data).forEach((key) => {
+    if (data[key] !== undefined) {
+      clean[key] = data[key];
+    }
+  });
+  return clean;
+}
+
+/**
+ * Validate Connection to Firestore on startup
+ */
+async function testConnection() {
+  try {
+    await getDocFromServer(doc(db, SETTINGS_COLLECTION, STORE_DOC_ID));
+    console.log('[Firestore] Connected to database server successfully.');
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.error('[Firestore] Please check your Firebase/Network configuration. The client is offline.');
+    }
+  }
+}
 
 /**
  * Initialize Firestore data if it's the first time running
@@ -39,24 +95,37 @@ async function ensureDbInitialized() {
       const batch = writeBatch(db);
       for (const item of INITIAL_MENU_ITEMS) {
         const itemRef = doc(db, MENU_COLLECTION, item.id);
-        batch.set(itemRef, item);
+        batch.set(itemRef, sanitizeForFirestore(item));
       }
 
       // Seed feedbacks
       for (const fb of INITIAL_FEEDBACKS) {
         const fbRef = doc(db, FEEDBACKS_COLLECTION, fb.id);
-        batch.set(fbRef, fb);
+        batch.set(fbRef, sanitizeForFirestore(fb));
       }
 
       await batch.commit();
       console.log('Database seeding completed successfully.');
+    } else {
+      // Ensure feedbacks collection has sample items if empty
+      const fbSnap = await getDocs(collection(db, FEEDBACKS_COLLECTION));
+      if (fbSnap.empty) {
+        console.log('Feedbacks collection empty. Seeding initial feedbacks...');
+        const batch = writeBatch(db);
+        for (const fb of INITIAL_FEEDBACKS) {
+          const fbRef = doc(db, FEEDBACKS_COLLECTION, fb.id);
+          batch.set(fbRef, sanitizeForFirestore(fb));
+        }
+        await batch.commit();
+      }
     }
   } catch (err) {
     console.error('Error in ensureDbInitialized:', err);
   }
 }
 
-// Call initialization check on module import
+// Call connection test and initialization check on module import
+testConnection();
 ensureDbInitialized();
 
 /**
@@ -75,6 +144,7 @@ export function subscribeToMenuItems(onData: (items: MenuItem[]) => void, onErro
     },
     (err) => {
       console.error('Error fetching menu items:', err);
+      handleFirestoreError(err, OperationType.LIST, MENU_COLLECTION);
       if (onError) onError(err);
     }
   );
@@ -105,6 +175,7 @@ export function subscribeToStoreSettings(onData: (settings: StoreSettings) => vo
     },
     (err) => {
       console.error('Error fetching store settings:', err);
+      handleFirestoreError(err, OperationType.GET, `${SETTINGS_COLLECTION}/${STORE_DOC_ID}`);
       if (onError) onError(err);
     }
   );
@@ -128,6 +199,7 @@ export function subscribeToFeedbacks(onData: (feedbacks: Feedback[]) => void, on
     },
     (err) => {
       console.error('Error fetching feedbacks:', err);
+      handleFirestoreError(err, OperationType.LIST, FEEDBACKS_COLLECTION);
       if (onError) onError(err);
     }
   );
@@ -137,12 +209,12 @@ export function subscribeToFeedbacks(onData: (feedbacks: Feedback[]) => void, on
  * Save or Update a Dish in Firestore
  */
 export async function saveDishToDb(dish: MenuItem): Promise<void> {
+  const path = `${MENU_COLLECTION}/${dish.id}`;
   try {
     const dishRef = doc(db, MENU_COLLECTION, dish.id);
-    await setDoc(dishRef, dish, { merge: true });
+    await setDoc(dishRef, sanitizeForFirestore(dish), { merge: true });
   } catch (err) {
-    console.error(`Error saving dish ${dish.id}:`, err);
-    throw err;
+    handleFirestoreError(err, OperationType.WRITE, path);
   }
 }
 
@@ -150,12 +222,12 @@ export async function saveDishToDb(dish: MenuItem): Promise<void> {
  * Delete a Dish from Firestore
  */
 export async function deleteDishFromDb(dishId: string): Promise<void> {
+  const path = `${MENU_COLLECTION}/${dishId}`;
   try {
     const dishRef = doc(db, MENU_COLLECTION, dishId);
     await deleteDoc(dishRef);
   } catch (err) {
-    console.error(`Error deleting dish ${dishId}:`, err);
-    throw err;
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 }
 
@@ -163,19 +235,19 @@ export async function deleteDishFromDb(dishId: string): Promise<void> {
  * Save or Update Store Settings in Firestore
  */
 export async function updateStoreSettingsInDb(settings: StoreSettings): Promise<void> {
+  const path = `${SETTINGS_COLLECTION}/${STORE_DOC_ID}`;
   try {
     const storeDocRef = doc(db, SETTINGS_COLLECTION, STORE_DOC_ID);
     await setDoc(
       storeDocRef,
-      {
+      sanitizeForFirestore({
         ...settings,
         isInitialized: true,
-      },
+      }),
       { merge: true }
     );
   } catch (err) {
-    console.error('Error updating store settings:', err);
-    throw err;
+    handleFirestoreError(err, OperationType.WRITE, path);
   }
 }
 
@@ -194,13 +266,12 @@ export async function resetMenuInDb(): Promise<void> {
     // 2. Add INITIAL_MENU_ITEMS
     for (const item of INITIAL_MENU_ITEMS) {
       const itemRef = doc(db, MENU_COLLECTION, item.id);
-      batch.set(itemRef, item);
+      batch.set(itemRef, sanitizeForFirestore(item));
     }
 
     await batch.commit();
   } catch (err) {
-    console.error('Error resetting menu:', err);
-    throw err;
+    handleFirestoreError(err, OperationType.WRITE, MENU_COLLECTION);
   }
 }
 
@@ -208,12 +279,14 @@ export async function resetMenuInDb(): Promise<void> {
  * Add Feedback to Firestore
  */
 export async function addFeedbackToDb(feedback: Feedback): Promise<void> {
+  const path = `${FEEDBACKS_COLLECTION}/${feedback.id}`;
   try {
+    const cleanFeedback = sanitizeForFirestore(feedback);
     const fbRef = doc(db, FEEDBACKS_COLLECTION, feedback.id);
-    await setDoc(fbRef, feedback);
+    await setDoc(fbRef, cleanFeedback);
+    console.log(`[Firestore] Feedback successfully saved to ${path}`);
   } catch (err) {
-    console.error('Error adding feedback:', err);
-    throw err;
+    handleFirestoreError(err, OperationType.CREATE, path);
   }
 }
 
@@ -221,11 +294,13 @@ export async function addFeedbackToDb(feedback: Feedback): Promise<void> {
  * Delete Feedback from Firestore
  */
 export async function deleteFeedbackFromDb(id: string): Promise<void> {
+  const path = `${FEEDBACKS_COLLECTION}/${id}`;
   try {
     const fbRef = doc(db, FEEDBACKS_COLLECTION, id);
     await deleteDoc(fbRef);
+    console.log(`[Firestore] Feedback successfully deleted from ${path}`);
   } catch (err) {
-    console.error('Error deleting feedback:', err);
-    throw err;
+    handleFirestoreError(err, OperationType.DELETE, path);
   }
 }
+

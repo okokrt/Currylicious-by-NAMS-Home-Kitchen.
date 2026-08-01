@@ -39,14 +39,28 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "customerName": { "type": "string" },
+        "customerName": { "type": "string", "maxLength": 100 },
         "rating": { "type": "number" },
-        "comment": { "type": "string" },
-        "dishName": { "type": "string" },
-        "imageUrl": { "type": "string" },
+        "comment": { "type": "string", "maxLength": 3000 },
+        "dishName": { "type": "string", "maxLength": 200 },
+        "photoUrl": { "type": "string", "maxLength": 500000 },
         "createdAt": { "type": "string" }
       },
-      "required": ["id", "customerName", "rating", "comment"]
+      "required": ["id", "customerName", "rating", "comment", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/menuItems/{itemId}": {
+      "schema": "menuItems",
+      "description": "Collection of menu items"
+    },
+    "/settings/{settingId}": {
+      "schema": "storeSettings",
+      "description": "Store settings document"
+    },
+    "/feedbacks/{feedbackId}": {
+      "schema": "feedbacks",
+      "description": "Collection of customer feedbacks"
     }
   }
 }

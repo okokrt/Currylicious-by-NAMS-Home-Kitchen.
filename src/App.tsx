@@ -196,12 +196,7 @@ export default function App() {
       id: 'fb-' + Date.now(),
       createdAt: new Date().toISOString(),
     };
-    try {
-      await addFeedbackToDb(created);
-    } catch (err) {
-      console.error('Failed to save feedback to database', err);
-      alert('Error saving feedback. Please try again.');
-    }
+    await addFeedbackToDb(created);
   };
 
   const handleDeleteFeedback = async (id: string) => {

@@ -1,15 +1,57 @@
 import React, { useState } from 'react';
 import { Feedback, MenuItem } from '../types';
-import { Star, X, Upload, Image as ImageIcon, MessageSquarePlus, CheckCircle2, Heart, MessageSquare, Trash2, Camera } from 'lucide-react';
+import { Star, X, Upload, MessageSquarePlus, CheckCircle2, MessageSquare, Trash2, Camera, Loader2, AlertCircle } from 'lucide-react';
 
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
   feedbacks: Feedback[];
-  onAddFeedback: (feedback: Omit<Feedback, 'id' | 'createdAt'>) => void;
-  onDeleteFeedback?: (id: string) => void;
+  onAddFeedback: (feedback: Omit<Feedback, 'id' | 'createdAt'>) => Promise<void> | void;
+  onDeleteFeedback?: (id: string) => Promise<void> | void;
   menuItems: MenuItem[];
   isOwner?: boolean;
+}
+
+/**
+ * Compress image using HTML5 Canvas to fit safely inside Firestore 1MB document limit
+ */
+function compressImage(file: File, maxWidth = 600, maxHeight = 600, quality = 0.7): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('Failed to read image file'));
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('Failed to load image'));
+      img.onload = () => {
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth || height > maxHeight) {
+          if (width / height > maxWidth / maxHeight) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          } else {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(e.target?.result as string);
+          return;
+        }
+
+        ctx.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target?.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 }
 
 export const FeedbackModal: React.FC<FeedbackModalProps> = ({
@@ -31,27 +73,35 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
   const [photoUrl, setPhotoUrl] = useState<string | undefined>(undefined);
   const [selectedDish, setSelectedDish] = useState<string>('');
   
-  // Validation errors
+  // Submission & Validation States
   const [ratingError, setRatingError] = useState(false);
   const [commentError, setCommentError] = useState(false);
+  const [isCompressingPhoto, setIsCompressingPhoto] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitErrorMessage, setSubmitErrorMessage] = useState<string | null>(null);
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [selectedImagePreview, setSelectedImagePreview] = useState<string | null>(null);
 
   if (!isOpen) return null;
 
-  // Handle Photo File Upload
-  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Handle Photo File Upload with Canvas Compression
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        alert('File size is too large. Please select an image under 5MB.');
+      if (file.size > 10 * 1024 * 1024) {
+        alert('File size is too large. Please select an image under 10MB.');
         return;
       }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoUrl(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsCompressingPhoto(true);
+      try {
+        const compressed = await compressImage(file);
+        setPhotoUrl(compressed);
+      } catch (err) {
+        console.error('Image processing error:', err);
+        alert('Failed to process photo. Please try a different image.');
+      } finally {
+        setIsCompressingPhoto(false);
+      }
     }
   };
 
@@ -59,18 +109,20 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     setPhotoUrl(undefined);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmitting) return; // Prevent duplicate submissions
+
     let hasError = false;
 
-    if (rating === 0) {
+    if (rating < 1 || rating > 5) {
       setRatingError(true);
       hasError = true;
     } else {
       setRatingError(false);
     }
 
-    if (!comment.trim()) {
+    if (!comment.trim() || comment.trim().length < 2) {
       setCommentError(true);
       hasError = true;
     } else {
@@ -79,25 +131,38 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
 
     if (hasError) return;
 
-    onAddFeedback({
-      customerName: customerName.trim() || 'Valued Customer',
-      rating,
-      comment: comment.trim(),
-      photoUrl,
-      dishName: selectedDish || undefined,
-    });
+    setIsSubmitting(true);
+    setSubmitErrorMessage(null);
 
-    setIsSubmitted(true);
-    setTimeout(() => {
-      setIsSubmitted(false);
+    try {
+      await onAddFeedback({
+        customerName: customerName.trim() || 'Valued Customer',
+        rating,
+        comment: comment.trim(),
+        photoUrl: photoUrl || undefined,
+        dishName: selectedDish || undefined,
+      });
+
+      setIsSubmitted(true);
+      
       // Reset form
       setRating(0);
       setComment('');
       setCustomerName('');
       setPhotoUrl(undefined);
       setSelectedDish('');
-      setActiveTab('view');
-    }, 1500);
+
+      setTimeout(() => {
+        setIsSubmitted(false);
+        setActiveTab('view');
+      }, 2000);
+    } catch (err: any) {
+      console.error('[FeedbackModal] Error submitting feedback:', err);
+      const msg = err instanceof Error ? err.message : 'Unable to save feedback to database. Please check your internet connection and try again.';
+      setSubmitErrorMessage(msg);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Calculate Average Rating
@@ -167,14 +232,25 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
                 <h3 className="font-serif font-bold text-xl text-[#2D241E]">
-                  Thank You for Your Feedback!
+                  Thank You! Feedback Saved.
                 </h3>
                 <p className="text-sm text-[#6E5E53] max-w-md mx-auto">
-                  Your feedback helps us continuously improve our authentic curries and service.
+                  Your feedback has been permanently stored and is now visible to all customers across devices.
                 </p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
+                {/* Submission Error Banner */}
+                {submitErrorMessage && (
+                  <div className="bg-rose-50 border border-rose-200 text-rose-800 p-3.5 rounded-2xl text-xs sm:text-sm flex items-start gap-2.5 animate-shake">
+                    <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-bold">Error Saving Feedback</p>
+                      <p className="text-xs text-rose-700 mt-0.5">{submitErrorMessage}</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Mandatory Star Rating */}
                 <div className="bg-white p-4 rounded-2xl border border-[#E8E0D5] shadow-xs space-y-2">
                   <label className="block text-xs sm:text-sm font-extrabold text-[#2D241E]">
@@ -190,13 +266,14 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                         <button
                           key={star}
                           type="button"
+                          disabled={isSubmitting}
                           onMouseEnter={() => setHoverRating(star)}
                           onMouseLeave={() => setHoverRating(0)}
                           onClick={() => {
                             setRating(star);
                             setRatingError(false);
                           }}
-                          className="p-1 transition-transform active:scale-125 focus:outline-none"
+                          className="p-1 transition-transform active:scale-125 focus:outline-none disabled:opacity-50"
                         >
                           <Star
                             className={`w-8 h-8 sm:w-9 sm:h-9 transition-colors ${
@@ -226,10 +303,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                   </label>
                   <input
                     type="text"
+                    disabled={isSubmitting}
                     value={customerName}
+                    maxLength={100}
                     onChange={(e) => setCustomerName(e.target.value)}
                     placeholder="e.g. Maria Clara"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#D9CEBF] rounded-xl text-sm text-[#2D241E] focus:outline-none focus:border-[#C05621]"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D9CEBF] rounded-xl text-sm text-[#2D241E] focus:outline-none focus:border-[#C05621] disabled:bg-gray-100"
                   />
                 </div>
 
@@ -239,9 +318,10 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     Select Dish Reviewed (Optional)
                   </label>
                   <select
+                    disabled={isSubmitting}
                     value={selectedDish}
                     onChange={(e) => setSelectedDish(e.target.value)}
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#D9CEBF] rounded-xl text-sm text-[#2D241E] focus:outline-none focus:border-[#C05621]"
+                    className="w-full px-3.5 py-2.5 bg-white border border-[#D9CEBF] rounded-xl text-sm text-[#2D241E] focus:outline-none focus:border-[#C05621] disabled:bg-gray-100"
                   >
                     <option value="">-- General Restaurant Experience --</option>
                     {menuItems.map((dish) => (
@@ -259,24 +339,26 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       Your Feedback <span className="text-rose-600">*</span>
                     </label>
                     <span className="text-[11px] text-[#6E5E53]">
-                      Line or paragraph feedback
+                      Line or paragraph review
                     </span>
                   </div>
                   <textarea
                     rows={4}
+                    disabled={isSubmitting}
+                    maxLength={3000}
                     value={comment}
                     onChange={(e) => {
                       setComment(e.target.value);
                       if (e.target.value.trim()) setCommentError(false);
                     }}
                     placeholder="Tell us what you loved about your meal, spice levels, portion size, or delivery experience..."
-                    className={`w-full p-3 bg-white border rounded-2xl text-sm text-[#2D241E] focus:outline-none focus:border-[#C05621] ${
+                    className={`w-full p-3 bg-white border rounded-2xl text-sm text-[#2D241E] focus:outline-none focus:border-[#C05621] disabled:bg-gray-100 ${
                       commentError ? 'border-rose-500 bg-rose-50/30' : 'border-[#D9CEBF]'
                     }`}
                   />
                   {commentError && (
                     <p className="text-xs text-rose-600 font-semibold mt-1">
-                      Feedback comment is mandatory. Please enter a short line or paragraph.
+                      Feedback comment is mandatory. Please write a short line or review.
                     </p>
                   )}
                 </div>
@@ -291,7 +373,12 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                     Show off the delicious dish you received!
                   </p>
 
-                  {photoUrl ? (
+                  {isCompressingPhoto ? (
+                    <div className="flex items-center gap-2 p-3 text-xs text-[#C05621] font-bold">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Optimizing photo size...</span>
+                    </div>
+                  ) : photoUrl ? (
                     <div className="relative inline-block mt-2">
                       <img
                         src={photoUrl}
@@ -300,6 +387,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       />
                       <button
                         type="button"
+                        disabled={isSubmitting}
                         onClick={handleRemovePhoto}
                         className="absolute -top-2 -right-2 bg-rose-600 text-white p-1 rounded-full shadow-md hover:bg-rose-700 transition"
                         title="Remove photo"
@@ -316,6 +404,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                       <input
                         type="file"
                         accept="image/*"
+                        disabled={isSubmitting}
                         onChange={handlePhotoUpload}
                         className="hidden"
                       />
@@ -326,10 +415,20 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                 {/* Submit Button */}
                 <button
                   type="submit"
-                  className="w-full py-3.5 px-4 rounded-xl bg-[#C05621] hover:bg-[#A84719] text-white font-extrabold text-sm sm:text-base shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2"
+                  disabled={isSubmitting || isCompressingPhoto}
+                  className="w-full py-3.5 px-4 rounded-xl bg-[#C05621] hover:bg-[#A84719] text-white font-extrabold text-sm sm:text-base shadow-md transition active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-50 cursor-pointer disabled:cursor-not-allowed"
                 >
-                  <MessageSquarePlus className="w-5 h-5" />
-                  <span>Submit Customer Feedback</span>
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      <span>Saving Feedback to Database...</span>
+                    </>
+                  ) : (
+                    <>
+                      <MessageSquarePlus className="w-5 h-5" />
+                      <span>Submit Customer Feedback</span>
+                    </>
+                  )}
                 </button>
               </form>
             )
@@ -398,9 +497,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                           </div>
                           {isOwner && onDeleteFeedback && (
                             <button
-                              onClick={() => {
+                              onClick={async () => {
                                 if (confirm('Are you sure you want to delete this feedback?')) {
-                                  onDeleteFeedback(fb.id);
+                                  await onDeleteFeedback(fb.id);
                                 }
                               }}
                               className="p-1 text-gray-400 hover:text-rose-600 transition"
@@ -429,11 +528,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
                         </div>
                       )}
 
-                      <div className="text-[10px] text-gray-400 font-mono text-right">
-                        {new Date(fb.createdAt).toLocaleDateString(undefined, {
+                      <div className="text-[10px] text-gray-500 font-mono text-right">
+                        {new Date(fb.createdAt).toLocaleString(undefined, {
                           year: 'numeric',
                           month: 'short',
                           day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
                         })}
                       </div>
                     </div>
@@ -469,3 +570,4 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({
     </div>
   );
 };
+
